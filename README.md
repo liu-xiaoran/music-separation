@@ -113,7 +113,7 @@ music-sep separate <input> [OPTIONS]
 | `--whisper-model` | `medium` | Whisper 模型大小 |
 | `--whisper-device` | `auto` | 歌词识别设备（不支持 mps） |
 | `--language` | 自动检测 | 强制语言代码（如 zh / en / ja） |
-| `--lyrics-format` | `srt` | 歌词格式：srt / vtt / txt / json |
+| `--lyrics-format` | `srt` | 歌词格式：srt / lrc / vtt / txt / json |
 
 #### 可视化参数
 
@@ -168,7 +168,7 @@ enabled = false
 whisper_model = "medium"
 whisper_device = "auto"
 # language = "zh"
-output_format = "srt"
+output_format = "srt"  # srt / lrc / vtt / txt / json
 
 [visualization]
 enabled = false
@@ -193,7 +193,7 @@ demo/
     │   ├── drums.wav
     │   ├── bass.wav
     │   └── other.wav
-    ├── lyrics.srt              # --lyrics 时生成
+    ├── lyrics.srt              # --lyrics 时生成（支持 srt/lrc/vtt/txt/json）
     └── visualizations/         # --visualize 时生成
         ├── waveform_original.png
         ├── waveform_vocals.png

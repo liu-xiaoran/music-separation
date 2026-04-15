@@ -218,7 +218,7 @@ def validate_config(config: AppConfig) -> None:
         )
 
     # 校验歌词格式
-    valid_lyrics_formats = {"srt", "vtt", "txt", "json"}
+    valid_lyrics_formats = {"srt", "lrc", "vtt", "txt", "json"}
     if config.lyrics.output_format not in valid_lyrics_formats:
         raise ConfigurationError(
             f"不支持的歌词格式: {config.lyrics.output_format}。"

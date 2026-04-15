@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import torch
 
@@ -14,41 +13,44 @@ logger = logging.getLogger("music_sep")
 
 
 class SeparationEngine:
-    """封装 demucs.api.Separator"""
+    """封装 demucs 4.0.x 低级 API"""
 
     def __init__(self, config: SeparationConfig):
         self._config = config
-        self._separator = None
+        self._model = None
+        self._model_info: dict | None = None
 
-    def _get_separator(self):
-        """懒加载初始化 Separator 实例"""
-        if self._separator is None:
-            try:
-                from demucs.api import Separator
-            except ImportError as e:
-                raise ModelNotFoundError(f"无法导入 demucs: {e}")
+    def _load_model(self):
+        """懒加载 demucs 模型"""
+        if self._model is not None:
+            return
 
-            kwargs = dict(
-                model=self._config.model,
-                device=self._config.device,
-                shifts=self._config.shifts,
-                overlap=self._config.overlap,
-                progress=True,
-            )
-            if self._config.two_stems:
-                kwargs["two_stems"] = self._config.two_stems
+        try:
+            from demucs.pretrained import get_model
+            from demucs.apply import BagOfModels
+        except ImportError as e:
+            raise ModelNotFoundError(f"无法导入 demucs: {e}")
 
-            try:
-                logger.info(f"加载 Demucs 模型: {self._config.model} (设备: {self._config.device})")
-                self._separator = Separator(**kwargs)
-            except torch.cuda.OutOfMemoryError:
-                raise AudioProcessingError(
-                    "GPU 显存不足。尝试使用 --device cpu 或减小 --shifts。"
-                )
-            except Exception as e:
-                raise ModelNotFoundError(f"模型加载失败: {e}")
+        try:
+            logger.info(f"加载 Demucs 模型: {self._config.model} (设备: {self._config.device})")
+            model = get_model(self._config.model)
+        except Exception as e:
+            raise ModelNotFoundError(f"模型加载失败: {e}")
 
-        return self._separator
+        # 将模型移到目标设备
+        device = self._config.device
+        model.to(device)
+
+        # 如果是 BagOfModels 且设置了 two_stems，标记之
+        if self._config.two_stems and isinstance(model, BagOfModels):
+            model.two_stems = self._config.two_stems
+
+        self._model = model
+        self._model_info = {
+            "model": self._config.model,
+            "samplerate": model.samplerate,
+            "sources": list(model.sources),
+        }
 
     def separate(
         self,
@@ -61,15 +63,42 @@ class SeparationEngine:
 
         Returns:
             {stem_name: output_file_path} 字典
-
-        Raises:
-            AudioProcessingError: 分离过程中出错
         """
-        separator = self._get_separator()
+        self._load_model()
+
+        try:
+            from demucs.separate import load_track
+            from demucs.apply import apply_model
+        except ImportError as e:
+            raise AudioProcessingError(f"无法导入 demucs: {e}")
 
         try:
             logger.info(f"开始分离: {input_file.name}")
-            _, separated = separator.separate_audio_file(str(input_file))
+
+            # 加载音频
+            wav = load_track(
+                str(input_file),
+                audio_channels=self._model.audio_channels,
+                samplerate=self._model.samplerate,
+            )
+
+            # 将音频移到目标设备
+            device = self._config.device
+            ref = wav.mean(0)
+            wav = wav.unsqueeze(0).to(device)
+
+            # 应用模型分离
+            estimated = apply_model(
+                self._model,
+                wav,
+                shifts=self._config.shifts,
+                overlap=self._config.overlap,
+                progress=True,
+                device=device,
+            )
+
+            estimated = estimated[0]  # 去掉 batch 维度
+
         except torch.cuda.OutOfMemoryError:
             raise AudioProcessingError(
                 "GPU 显存不足。尝试使用 --device cpu 或减小 --shifts。"
@@ -77,10 +106,32 @@ class SeparationEngine:
         except Exception as e:
             raise AudioProcessingError(f"分离失败: {e}")
 
+        # two_stems 模式：仅返回指定轨 + 残差
+        sources = self._model.sources
+        if self._config.two_stems:
+            # 找到目标 stem 的索引
+            target_idx = sources.index(self._config.two_stems)
+            # 目标音轨
+            target_tensor = estimated[target_idx] + ref.to(estimated.device)
+            # 残差（其他所有轨的混合）
+            other_indices = [i for i in range(len(sources)) if i != target_idx]
+            no_target_tensor = sum(
+                estimated[i] for i in other_indices
+            ) + ref.to(estimated.device)
+
+            separated = {
+                self._config.two_stems: target_tensor,
+                "no_" + self._config.two_stems: no_target_tensor,
+            }
+        else:
+            separated = {
+                name: estimated[i] + ref.to(estimated.device)
+                for i, name in enumerate(sources)
+            }
+
         # 根据 stems 配置过滤
-        stems_to_save = separated
         if self._config.stems:
-            stems_to_save = {
+            separated = {
                 name: tensor
                 for name, tensor in separated.items()
                 if name in self._config.stems
@@ -88,9 +139,9 @@ class SeparationEngine:
 
         # 保存音轨文件
         results: dict[str, Path] = {}
-        samplerate = separator.samplerate or 44100
+        samplerate = self._model.samplerate
 
-        for stem_name, tensor in stems_to_save.items():
+        for stem_name, tensor in separated.items():
             filename = stem_filename(stem_name, output_format)
             output_file = output_paths.stems_dir / filename
             try:
@@ -111,15 +162,7 @@ class SeparationEngine:
         fmt: str,
         bitrate: str = "128k",
     ) -> None:
-        """保存音频 tensor 到文件
-
-        Args:
-            tensor: PyTorch tensor (channels, samples)
-            output_path: 输出路径
-            samplerate: 采样率
-            fmt: 输出格式 (wav/mp3/flac)
-            bitrate: MP3 比特率
-        """
+        """保存音频 tensor 到文件"""
         import torchaudio
 
         # 确保是 2D tensor (channels, samples)
@@ -129,23 +172,13 @@ class SeparationEngine:
             tensor = tensor.squeeze()
 
         if fmt == "mp3":
-            # 使用 demucs 内置的 MP3 编码器
+            # 使用 demucs 内置的保存方法
             try:
-                from demucs.audio import encode_mp3
-                import numpy as np
-
-                # 转为 numpy int16 格式
-                wav_np = tensor.cpu().numpy()
-                # 确保是 2D (channels, samples)
-                if wav_np.ndim == 1:
-                    wav_np = wav_np[np.newaxis, :]
-                # 转为 int16
-                wav_int16 = (wav_np * 32767).clip(-32768, 32767).astype(np.int16)
-                # 解析比特率数字（如 "128k" -> 128）
+                from demucs.separate import save_audio
                 bitrate_num = int(bitrate.rstrip("kK"))
-                encode_mp3(wav_int16, str(output_path), samplerate, bitrate=bitrate_num)
+                save_audio(tensor.cpu(), output_path, samplerate, bitrate=bitrate_num)
+                return
             except ImportError:
-                # 回退到 torchaudio（需ffmpeg后端）
                 torchaudio.save(
                     str(output_path),
                     tensor.cpu(),
@@ -171,8 +204,5 @@ class SeparationEngine:
 
     def get_model_info(self) -> dict:
         """返回当前模型信息"""
-        separator = self._get_separator()
-        return {
-            "model": self._config.model,
-            "samplerate": separator.samplerate,
-        }
+        self._load_model()
+        return self._model_info

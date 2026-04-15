@@ -111,7 +111,7 @@ def separate(
     lyrics_format: Optional[str] = typer.Option(
         None,
         "--lyrics-format",
-        help="歌词输出格式: srt / vtt / txt / json (默认: srt)",
+        help="歌词输出格式: srt / lrc / vtt / txt / json (默认: srt)",
     ),
     visualize: Optional[bool] = typer.Option(
         None,

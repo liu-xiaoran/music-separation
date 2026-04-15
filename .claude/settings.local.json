@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(~/.claude/skills/codex/scripts/ask_codex.sh Review the project plan at PLAN.md for an AI Music Separation CLI tool \\(Python, using Demucs + faster-whisper + librosa\\). Evaluate: 1\\) Is the architecture sound? 2\\) Are there any gaps or issues in the design? 3\\) Is the dependency choice appropriate? 4\\) Is the implementation order correct? 5\\) Any suggestions for improvement? Please respond in Chinese.:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(music-sep --help)"
+    ]
+  }
+}

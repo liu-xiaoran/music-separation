@@ -129,6 +129,7 @@ class LyricsTranscriber:
         """
         writers = {
             "srt": self._write_srt,
+            "lrc": self._write_lrc,
             "vtt": self._write_vtt,
             "txt": self._write_txt,
             "json": self._write_json,
@@ -189,6 +190,23 @@ class LyricsTranscriber:
             lines.append(seg["text"])
             lines.append("")
 
+        path.write_text("\n".join(lines), encoding="utf-8")
+
+    @staticmethod
+    def _format_timestamp_lrc(seconds: float) -> str:
+        """格式化 LRC 时间戳: mm:ss.xx"""
+        seconds = max(0.0, seconds)
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        centis = int((seconds - int(seconds)) * 100)
+        return f"{minutes:02d}:{secs:02d}.{centis:02d}"
+
+    def _write_lrc(self, segments: list[dict], path: Path) -> None:
+        """写入 LRC 格式"""
+        lines = []
+        for seg in segments:
+            timestamp = self._format_timestamp_lrc(seg["start"])
+            lines.append(f"[{timestamp}]{seg['text']}")
         path.write_text("\n".join(lines), encoding="utf-8")
 
     def _write_txt(self, segments: list[dict], path: Path) -> None:
