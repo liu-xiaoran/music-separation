@@ -1,5 +1,7 @@
 # music-sep
 
+[English](README_EN.md)
+
 基于 Demucs 的 AI 音频分离 CLI 工具，集成歌词识别与音频可视化。
 
 ## 功能
