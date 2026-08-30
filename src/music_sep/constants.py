@@ -1,21 +1,13 @@
-# 支持的输入音频格式
-SUPPORTED_INPUT_EXTENSIONS = frozenset({".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma"})
+from music_sep.domain.catalog import (
+    DEMUCS_MODEL_DESCRIPTIONS,
+    SUPPORTED_INPUT_EXTENSIONS as SUPPORTED_INPUT_EXTENSIONS,
+    VISUALIZATION_TYPES,
+    WHISPER_MODELS as WHISPER_MODELS,
+)
 
-# 可用的 Demucs 模型
-AVAILABLE_MODELS = {
-    "htdemucs": "Hybrid Transformer 4轨 (drums, bass, other, vocals)",
-    "htdemucs_6s": "Hybrid Transformer 6轨 (+ guitar, piano)",
-    "htdemucs_ft": "微调版 Hybrid Transformer 4轨",
-    "mdx": "MDX 挑战基线 4轨",
-    "mdx_extra": "MDX 增强 4轨",
-    "hdemucs_mmi": "Hybrid Demucs 2轨 (vocals + accompaniment)",
-}
-
-# 可用的 Whisper 模型
-WHISPER_MODELS = ("tiny", "base", "small", "medium", "large-v3", "distil-large-v3", "turbo")
-
-# 可用的可视化类型
-VIZ_TYPES = ("waveform", "spectrogram", "mel")
+# 保持旧模块公开对象和容器类型兼容。
+AVAILABLE_MODELS = dict(DEMUCS_MODEL_DESCRIPTIONS)
+VIZ_TYPES = VISUALIZATION_TYPES
 
 # 默认采样率
 DEFAULT_SAMPLE_RATE = 44100

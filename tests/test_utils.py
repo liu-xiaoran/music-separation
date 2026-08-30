@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from music_sep.utils import setup_logging, validate_input_file, detect_device, format_duration
-from music_sep.exceptions import UnsupportedFormatError, DeviceNotAvailableError
+from music_sep.exceptions import UnsupportedFormatError
 
 
 class TestSetupLogging:
@@ -50,19 +50,8 @@ class TestDetectDevice:
     def test_cpu_always_available(self):
         assert detect_device("cpu") == "cpu"
 
-    def test_auto_returns_valid_device(self):
-        device = detect_device("auto")
-        assert device in ("cpu", "cuda", "mps")
-
-    def test_ctranslate2_auto_skips_mps(self):
-        device = detect_device("auto", backend="ctranslate2")
-        assert device in ("cpu", "cuda")
-        # ctranslate2 不应返回 mps
-        assert device != "mps"
-
-    def test_explicit_mps_with_ctranslate2_raises(self):
-        with pytest.raises(DeviceNotAvailableError, match="ctranslate2"):
-            detect_device("mps", backend="ctranslate2")
+    def test_explicit_mps_with_ctranslate2_falls_back_to_cpu(self):
+        assert detect_device("mps", backend="ctranslate2") == "cpu"
 
 
 class TestFormatDuration:

@@ -7,6 +7,7 @@ from importlib import import_module
 from pathlib import Path
 
 from music_sep.config import LyricsConfig
+from music_sep.domain.config import RuntimeResolution
 from music_sep.exceptions import TranscriptionError
 from music_sep.utils import detect_device
 
@@ -25,8 +26,19 @@ class TranscriptionResult:
 class LyricsTranscriber:
     """封装 faster_whisper.WhisperModel"""
 
-    def __init__(self, config: LyricsConfig):
+    def __init__(
+        self,
+        config: LyricsConfig,
+        *,
+        runtime_resolution: RuntimeResolution | None = None,
+    ) -> None:
+        if runtime_resolution is not None:
+            if runtime_resolution.backend != "ctranslate2":
+                raise TranscriptionError("歌词运行时解析必须使用 ctranslate2 后端")
+            if runtime_resolution.requested != config.whisper_device:
+                raise TranscriptionError("歌词运行时解析结果与请求配置不一致")
         self._config = config
+        self._runtime_resolution = runtime_resolution
         self._device = None
         self._model = None
 
@@ -38,9 +50,18 @@ class LyricsTranscriber:
             except (ImportError, AttributeError) as e:
                 raise TranscriptionError(f"无法导入 faster_whisper: {e}") from e
 
-            # 解析设备（ctranslate2 后端不支持 MPS）
-            self._device = detect_device(self._config.whisper_device, backend="ctranslate2")
-            logger.info(f"加载 Whisper 模型: {self._config.whisper_model} (设备: {self._device})")
+            if self._runtime_resolution is not None:
+                self._device = self._runtime_resolution.actual
+            else:
+                self._device = detect_device(
+                    self._config.whisper_device,
+                    backend="ctranslate2",
+                )
+            logger.info(
+                "加载 Whisper 模型: %s (设备: %s)",
+                self._config.whisper_model,
+                self._device,
+            )
 
             try:
                 # CUDA 使用 float16，CPU 使用 int8

@@ -1,5 +1,8 @@
-import pytest
+import logging
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 from music_sep.config import (
     AppConfig,
@@ -7,9 +10,10 @@ from music_sep.config import (
     LyricsConfig,
     VisualizationConfig,
     OutputConfig,
-    merge_config,
-    validate_config,
     load_toml_config,
+    merge_config,
+    to_validated_config,
+    validate_config,
 )
 from music_sep.exceptions import ConfigurationError
 
@@ -146,3 +150,189 @@ class TestLoadTomlConfig:
         bad_file.write_text("invalid [ toml")
         with pytest.raises(ConfigurationError, match="解析失败"):
             load_toml_config(bad_file)
+
+
+def test_cli_valid_values_override_malformed_lower_priority_toml(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[separation]
+shifts = "broken"
+
+[output]
+output_dir = 123
+""".strip(),
+        encoding="utf-8",
+    )
+    cli_output = tmp_path / "cli-output"
+
+    config = merge_config(
+        toml_path=config_path,
+        shifts=2,
+        output_dir=cli_output,
+    )
+
+    assert config.separation.shifts == 2
+    assert config.output.output_dir == cli_output
+
+
+def test_cli_list_replaces_toml_list_and_is_detached(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[visualization]
+types = ["waveform", "spectrogram"]
+""".strip(),
+        encoding="utf-8",
+    )
+    cli_types = ["mel"]
+
+    config = merge_config(toml_path=config_path, viz_types=cli_types)
+    cli_types.append("waveform")
+
+    assert config.visualization.types == ["mel"]
+
+
+def test_unknown_toml_sections_and_fields_emit_warnings(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[separation]
+model = "htdemucs"
+future_option = true
+
+[future_section]
+enabled = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="music_sep"):
+        config = merge_config(toml_path=config_path)
+
+    assert config.separation.model == "htdemucs"
+    assert "future_option" in caplog.text
+    assert "future_section" in caplog.text
+
+
+def test_unknown_toml_keys_escape_terminal_control_characters(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    config_path = tmp_path / "config.toml"
+    escaped_control = f"{chr(92)}u001b"
+    config_path.write_text(
+        (
+            f'["future{escaped_control}[2J"]\n'
+            "enabled = true\n\n"
+            "[separation]\n"
+            f'"future{escaped_control}[31m" = true'
+        ),
+        encoding="utf-8",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="music_sep"):
+        merge_config(toml_path=config_path)
+
+    assert "\x1b" not in caplog.text
+    assert "\\x1b" in caplog.text
+
+
+def test_invalid_toml_values_escape_terminal_control_characters(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    escaped_control = f"{chr(92)}u001b"
+    config_path.write_text(
+        f'[separation]\nshifts = "{escaped_control}[2J"',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        merge_config(toml_path=config_path)
+
+    message = str(exc_info.value)
+    assert "\x1b" not in message
+    assert "\\x1b[2J" in message
+
+
+def test_known_toml_section_must_be_a_table(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('separation = "invalid"', encoding="utf-8")
+
+    with pytest.raises(ConfigurationError, match=r"配置节 \[separation\].*期望表"):
+        merge_config(toml_path=config_path)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        AppConfig(separation=SeparationConfig(shifts=True)),
+        AppConfig(separation=SeparationConfig(shifts="1")),  # type: ignore[arg-type]
+        AppConfig(separation=SeparationConfig(overlap=True)),
+        AppConfig(separation=SeparationConfig(overlap="0.5")),  # type: ignore[arg-type]
+        AppConfig(lyrics=LyricsConfig(enabled=1)),  # type: ignore[arg-type]
+        AppConfig(lyrics=LyricsConfig(language=1)),  # type: ignore[arg-type]
+        AppConfig(visualization=VisualizationConfig(types="mel")),  # type: ignore[arg-type]
+        AppConfig(output=OutputConfig(overwrite="false")),  # type: ignore[arg-type]
+    ],
+)
+def test_invalid_types_always_raise_configuration_error(config: AppConfig) -> None:
+    with pytest.raises(ConfigurationError):
+        validate_config(config)
+
+
+def test_to_validated_config_returns_immutable_detached_collections() -> None:
+    config = AppConfig(
+        separation=SeparationConfig(stems=["vocals", "drums"]),
+        visualization=VisualizationConfig(types=["mel"]),
+    )
+
+    validated = to_validated_config(config)
+    config.separation.stems.append("bass")  # type: ignore[union-attr]
+    config.visualization.types.append("waveform")
+
+    assert validated.separation_stems == ("vocals", "drums")
+    assert validated.visualization_types == ("mel",)
+
+
+def test_to_validated_config_revalidates_direct_validated_instances() -> None:
+    validated = to_validated_config(AppConfig())
+    invalid = replace(validated, separation_shifts=True)
+
+    with pytest.raises(ConfigurationError, match="shifts"):
+        to_validated_config(invalid)
+
+
+def test_to_validated_config_recanonicalizes_runtime_mutable_aliases() -> None:
+    validated = to_validated_config(AppConfig())
+    stems = ["vocals"]
+    uncanonical = replace(validated, separation_stems=stems)  # type: ignore[arg-type]
+
+    canonical = to_validated_config(uncanonical)
+    stems.append("drums")
+
+    assert canonical.separation_stems == ("vocals",)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "bitrate", "valid"),
+    [
+        ("wav", "anything", True),
+        ("flac", "999k", True),
+        ("mp3", "8k", True),
+        ("mp3", "320K", True),
+        ("mp3", "7k", False),
+        ("mp3", "321k", False),
+        ("mp3", "fast", False),
+    ],
+)
+def test_bitrate_validation_is_mp3_only(fmt: str, bitrate: str, valid: bool) -> None:
+    config = AppConfig(output=OutputConfig(format=fmt, bitrate=bitrate))
+
+    if valid:
+        validate_config(config)
+    else:
+        with pytest.raises(ConfigurationError, match="bitrate|比特率"):
+            validate_config(config)

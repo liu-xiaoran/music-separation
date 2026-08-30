@@ -30,6 +30,20 @@
 
 > 写入本文档前，工作区已有未跟踪文件 `AGENTS.md`；本次新增 `TECHNICAL_HANDOFF.md`。两者均不属于上述基线提交，本文档未修改 `AGENTS.md`。
 
+### 0.1 重构实施状态覆盖（2026-08-30）
+
+本小节只记录上述审计基线之后的实施状态；第 0 节及后续“当前事实”仍是提交 `62e2ad2` 的历史快照，不应据此判断最新分支是否仍存在同一缺陷。
+
+| 范围 | 当前状态 |
+|---|---|
+| 历史审计基线 | `62e2ad2b12f3f04da775785a2bda4eba1b48da76`；保留原测试、Ruff、mypy 结果作为重构前证据 |
+| PR 1 | 本地提交 `3df3de8`：修复 Demucs 4.0.1 归一化/反归一化与 stem 选择正确性，引入 separator/audio-writer 边界，并恢复基础质量门禁 |
+| PR 2 | 当前分支 `refactor/pr2-config-device-boundary`：引入不可变 `RawConfig` / `ValidatedConfig` / `ResolvedConfig`、结构化运行时设备解析及兼容 facade；Pipeline 不再修改调用方配置；CTranslate2 使用独立 CUDA 探测，MPS 请求可见回退 CPU；不可用的可选歌词设备不会阻止必做分离 |
+| 当前自动化验证 | `pytest tests/ -v` 与 `pytest -m "not slow"` 均为 198 passed、5 warnings；`ruff check src tests`、`ruff format --check src tests`、`mypy src`、`pip check`、构建及干净 wheel 导入 smoke 均通过 |
+| 仍待实施 | 输出目录事务、并发保护、overwrite 回滚与旧正式结果保护仍属于 PR 3；在 PR 3 完成前，第 14 节对应的数据安全风险仍有效 |
+
+本文档列出的 257 个唯一测试用例 ID 是完整重构的目标验收目录，不等同于当前 pytest 收集的 198 个自动化测试项。
+
 ---
 
 ## 1. 项目定位与能力摘要
