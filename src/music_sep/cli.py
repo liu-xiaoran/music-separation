@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-import logging
+from importlib import import_module
 from pathlib import Path
 from typing import Optional
 
@@ -49,6 +49,7 @@ def main_callback(
 # ---------------------------------------------------------------------------
 # separate 命令
 # ---------------------------------------------------------------------------
+
 
 @app.command()
 def separate(
@@ -212,7 +213,7 @@ def separate(
     typer.echo(f"  输入文件  : {input.resolve()}")
     typer.echo(f"  输出目录  : {out.output_dir.resolve()}")
     typer.echo()
-    typer.echo(f"  [分离]")
+    typer.echo("  [分离]")
     typer.echo(f"    模型    : {sep.model}")
     typer.echo(f"    设备    : {sep.device}")
     typer.echo(f"    shifts  : {sep.shifts}")
@@ -222,7 +223,7 @@ def separate(
     if sep.stems:
         typer.echo(f"    指定轨  : {', '.join(sep.stems)}")
     typer.echo()
-    typer.echo(f"  [歌词识别]")
+    typer.echo("  [歌词识别]")
     typer.echo(f"    启用    : {'是' if lyr.enabled else '否'}")
     if lyr.enabled:
         typer.echo(f"    Whisper : {lyr.whisper_model}")
@@ -230,12 +231,12 @@ def separate(
         typer.echo(f"    语言    : {lyr.language or '自动检测'}")
         typer.echo(f"    格式    : {lyr.output_format}")
     typer.echo()
-    typer.echo(f"  [可视化]")
+    typer.echo("  [可视化]")
     typer.echo(f"    启用    : {'是' if viz.enabled else '否'}")
     if viz.enabled:
         typer.echo(f"    类型    : {', '.join(viz.types)}")
     typer.echo()
-    typer.echo(f"  [输出]")
+    typer.echo("  [输出]")
     typer.echo(f"    格式    : {out.format}")
     typer.echo(f"    比特率  : {out.bitrate}")
     typer.echo(f"    覆盖    : {'是' if out.overwrite else '否'}")
@@ -249,7 +250,7 @@ def separate(
     logger.info("开始音轨分离 ...")
     try:
         pipeline = Pipeline(app_config)
-        result = pipeline.run(input, dry_run=dry_run)
+        pipeline.run(input, dry_run=dry_run)
     except OutputExistsError as e:
         logger.warning(str(e))
         raise typer.Exit(code=1)
@@ -262,6 +263,7 @@ def separate(
 # ---------------------------------------------------------------------------
 # models 命令
 # ---------------------------------------------------------------------------
+
 
 @app.command()
 def models(
@@ -297,7 +299,11 @@ def models(
         if installed_only and not is_installed:
             continue
 
-        status = typer.style("[已安装]", fg=typer.colors.GREEN) if is_installed else typer.style("[未安装]", fg=typer.colors.YELLOW)
+        status = (
+            typer.style("[已安装]", fg=typer.colors.GREEN)
+            if is_installed
+            else typer.style("[未安装]", fg=typer.colors.YELLOW)
+        )
         typer.echo(f"  {name:<16s} {status}  {description}")
 
         if is_installed:
@@ -317,6 +323,7 @@ def models(
 # info 命令
 # ---------------------------------------------------------------------------
 
+
 @app.command()
 def info(
     input: Path = typer.Argument(
@@ -331,9 +338,10 @@ def info(
     显示文件名、格式、时长、采样率、声道数和文件大小。
     """
     import librosa
-    import soundfile as sf
 
     from music_sep.utils import format_duration
+
+    sf = import_module("soundfile")
 
     file_path = Path(input).resolve()
 
@@ -352,7 +360,9 @@ def info(
     typer.echo(f"格式    : {file_path.suffix.lstrip('.').upper()}")
     typer.echo(f"时长    : {format_duration(duration)}")
     typer.echo(f"采样率  : {sr} Hz")
-    typer.echo(f"声道数  : {channels} ({'立体声' if channels == 2 else '单声道' if channels == 1 else f'{channels}声道'})")
+    typer.echo(
+        f"声道数  : {channels} ({'立体声' if channels == 2 else '单声道' if channels == 1 else f'{channels}声道'})"
+    )
     typer.echo(f"文件大小: {file_size_mb:.2f} MB")
 
 

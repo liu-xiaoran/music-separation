@@ -72,8 +72,7 @@ def validate_input_file(path: Path) -> Path:
     ext = file_path.suffix.lower()
     if ext not in SUPPORTED_INPUT_EXTENSIONS:
         raise UnsupportedFormatError(
-            f"不支持的音频格式: {ext}。"
-            f"支持的格式: {', '.join(sorted(SUPPORTED_INPUT_EXTENSIONS))}"
+            f"不支持的音频格式: {ext}。支持的格式: {', '.join(sorted(SUPPORTED_INPUT_EXTENSIONS))}"
         )
 
     return file_path
@@ -100,9 +99,7 @@ def detect_device(preference: str = "auto", backend: str = "torch") -> str:
     if preference == "cuda":
         if torch.cuda.is_available():
             return "cuda"
-        raise DeviceNotAvailableError(
-            "CUDA 不可用。请确认已安装 NVIDIA GPU 和 CUDA 版 PyTorch。"
-        )
+        raise DeviceNotAvailableError("CUDA 不可用。请确认已安装 NVIDIA GPU 和 CUDA 版 PyTorch。")
 
     if preference == "mps":
         if backend == "ctranslate2":
@@ -122,9 +119,7 @@ def detect_device(preference: str = "auto", backend: str = "torch") -> str:
 
     # preference == "auto"
     if backend not in ("torch", "ctranslate2"):
-        raise DeviceNotAvailableError(
-            f"未知的后端类型: {backend}。支持: torch / ctranslate2"
-        )
+        raise DeviceNotAvailableError(f"未知的后端类型: {backend}。支持: torch / ctranslate2")
     if backend == "torch":
         if torch.cuda.is_available():
             return "cuda"

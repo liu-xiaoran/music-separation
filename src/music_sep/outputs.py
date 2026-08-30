@@ -11,10 +11,11 @@ from music_sep.exceptions import MusicSepError
 @dataclass
 class OutputPaths:
     """单首歌曲的所有输出路径"""
-    base_dir: Path          # demo/<song_name>/
-    stems_dir: Path         # demo/<song_name>/stems/
-    lyrics_path: Path       # demo/<song_name>/lyrics.<format>
-    viz_dir: Path           # demo/<song_name>/visualizations/
+
+    base_dir: Path  # demo/<song_name>/
+    stems_dir: Path  # demo/<song_name>/stems/
+    lyrics_path: Path  # demo/<song_name>/lyrics.<format>
+    viz_dir: Path  # demo/<song_name>/visualizations/
 
 
 class OutputExistsError(MusicSepError):
@@ -48,9 +49,7 @@ def resolve_output_paths(
     base_dir = output_root / song_name
 
     if base_dir.exists() and not overwrite:
-        raise OutputExistsError(
-            f"输出目录已存在: {base_dir}。使用 --overwrite 覆盖。"
-        )
+        raise OutputExistsError(f"输出目录已存在: {base_dir}。使用 --overwrite 覆盖。")
 
     return OutputPaths(
         base_dir=base_dir,
@@ -71,9 +70,7 @@ def ensure_output_dirs(paths: OutputPaths, overwrite: bool = False) -> None:
         OutputExistsError: base_dir 是文件而非目录
     """
     if paths.base_dir.exists() and paths.base_dir.is_file():
-        raise OutputExistsError(
-            f"输出路径已被文件占用: {paths.base_dir}"
-        )
+        raise OutputExistsError(f"输出路径已被文件占用: {paths.base_dir}")
 
     if overwrite and paths.base_dir.exists():
         shutil.rmtree(paths.base_dir)

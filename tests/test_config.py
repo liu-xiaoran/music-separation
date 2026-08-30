@@ -114,9 +114,7 @@ class TestValidateConfig:
             validate_config(config)
 
     def test_invalid_viz_type(self):
-        config = AppConfig(
-            visualization=VisualizationConfig(types=["waveform", "nonexistent"])
-        )
+        config = AppConfig(visualization=VisualizationConfig(types=["waveform", "nonexistent"]))
         with pytest.raises(ConfigurationError, match="未知的可视化类型"):
             validate_config(config)
 

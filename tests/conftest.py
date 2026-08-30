@@ -1,14 +1,10 @@
-import pytest
-from pathlib import Path
-import tempfile
-import shutil
 import numpy as np
+import pytest
 
 try:
     import soundfile as sf
-    HAS_SOUNDFILE = True
 except ImportError:
-    HAS_SOUNDFILE = False
+    sf = None
 
 
 @pytest.fixture
@@ -20,14 +16,19 @@ def tmp_dir(tmp_path):
 @pytest.fixture
 def sample_audio(tmp_path):
     """生成一个短的测试 WAV 音频文件"""
+    if sf is None:
+        pytest.skip("soundfile 未安装")
+
     sr = 44100
     duration = 1.0  # 1 秒
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)
     # 生成 440Hz 正弦波，双声道
-    y = np.column_stack([
-        np.sin(2 * np.pi * 440 * t),
-        np.sin(2 * np.pi * 440 * t),
-    ])
+    y = np.column_stack(
+        [
+            np.sin(2 * np.pi * 440 * t),
+            np.sin(2 * np.pi * 440 * t),
+        ]
+    )
     audio_path = tmp_path / "test_audio.wav"
     sf.write(str(audio_path), y, sr)
     return audio_path

@@ -136,8 +136,10 @@ def merge_config(
 
     # 校验 TOML section 类型必须为 dict
     for name, section in [
-        ("separation", toml_sep), ("lyrics", toml_lyr),
-        ("visualization", toml_viz), ("output", toml_out),
+        ("separation", toml_sep),
+        ("lyrics", toml_lyr),
+        ("visualization", toml_viz),
+        ("output", toml_out),
     ]:
         if not isinstance(section, dict):
             raise ConfigurationError(
@@ -180,7 +182,9 @@ def merge_config(
             f"output.output_dir 类型错误: 期望字符串，得到 {type(toml_output_dir).__name__}"
         )
     out_config = OutputConfig(
-        output_dir=Path(_merge_field("demo", str(toml_output_dir), str(output_dir) if output_dir else None)),
+        output_dir=Path(
+            _merge_field("demo", str(toml_output_dir), str(output_dir) if output_dir else None)
+        ),
         format=_merge_field("wav", toml_out.get("format"), output_format),
         bitrate=_merge_field("128k", toml_out.get("bitrate"), bitrate),
         overwrite=_merge_field(False, toml_out.get("overwrite"), overwrite),
@@ -229,16 +233,13 @@ def validate_config(config: AppConfig) -> None:
     valid_output_formats = {"wav", "mp3", "flac"}
     if config.output.format not in valid_output_formats:
         raise ConfigurationError(
-            f"不支持的输出格式: {config.output.format}。"
-            f"支持: {', '.join(valid_output_formats)}"
+            f"不支持的输出格式: {config.output.format}。支持: {', '.join(valid_output_formats)}"
         )
 
     # 校验可视化类型
     for vt in config.visualization.types:
         if vt not in VIZ_TYPES:
-            raise ConfigurationError(
-                f"未知的可视化类型: {vt}。支持: {', '.join(VIZ_TYPES)}"
-            )
+            raise ConfigurationError(f"未知的可视化类型: {vt}。支持: {', '.join(VIZ_TYPES)}")
 
     # 校验互斥参数
     if config.separation.two_stems is not None and config.separation.stems is not None:
@@ -259,7 +260,9 @@ def validate_config(config: AppConfig) -> None:
 
     # 校验 overlap 范围
     if not 0.0 <= config.separation.overlap <= 1.0:
-        raise ConfigurationError(f"overlap 必须在 0.0~1.0 之间，当前值: {config.separation.overlap}")
+        raise ConfigurationError(
+            f"overlap 必须在 0.0~1.0 之间，当前值: {config.separation.overlap}"
+        )
 
     # 校验 shifts
     if config.separation.shifts < 1:

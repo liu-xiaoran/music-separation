@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 
 from music_sep.outputs import (
     OutputPaths,
@@ -46,9 +45,7 @@ class TestResolveOutputPaths:
         existing.mkdir(parents=True)
         (existing / "old_file.txt").write_text("old")
 
-        paths = resolve_output_paths(
-            input_file, tmp_path / "output", overwrite=True
-        )
+        paths = resolve_output_paths(input_file, tmp_path / "output", overwrite=True)
         assert paths.base_dir == existing
 
 

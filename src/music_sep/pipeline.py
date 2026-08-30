@@ -6,12 +6,16 @@ from pathlib import Path
 from typing import Optional
 
 from music_sep.config import AppConfig
-from music_sep.exceptions import AudioProcessingError, MusicSepError
-from music_sep.lyrics import LyricsTranscriber, TranscriptionResult
-from music_sep.outputs import OutputPaths, resolve_output_paths, ensure_output_dirs, OutputExistsError
+from music_sep.lyrics import LyricsTranscriber
+from music_sep.outputs import (
+    OutputPaths,
+    resolve_output_paths,
+    ensure_output_dirs,
+    OutputExistsError,
+)
 from music_sep.separation import SeparationEngine
 from music_sep.visualization import Visualizer
-from music_sep.utils import validate_input_file, detect_device, setup_logging
+from music_sep.utils import validate_input_file, detect_device
 
 logger = logging.getLogger("music_sep")
 
@@ -19,6 +23,7 @@ logger = logging.getLogger("music_sep")
 @dataclass
 class PipelineResult:
     """流水线执行结果"""
+
     input_file: Path
     output_paths: OutputPaths
     stems: dict[str, Path] = field(default_factory=dict)
@@ -33,7 +38,7 @@ class Pipeline:
         self._config = config
         self._separation_engine: Optional[SeparationEngine] = None
         self._transcriber = None  # Step 5 实现
-        self._visualizer = None   # Step 6 实现
+        self._visualizer = None  # Step 6 实现
 
     def run(self, input_file: Path, dry_run: bool = False) -> PipelineResult:
         """执行完整流水线
@@ -61,6 +66,13 @@ class Pipeline:
             self._config.separation.device, backend="torch"
         )
         logger.info(f"分离设备: {self._config.separation.device}")
+
+        # 在创建或覆盖输出目录前校验 writer 参数
+        self._separation_engine = SeparationEngine(self._config.separation)
+        self._separation_engine.validate_output(
+            self._config.output.format,
+            self._config.output.bitrate,
+        )
 
         # 解析输出路径
         try:
@@ -95,7 +107,6 @@ class Pipeline:
             output_paths=output_paths,
         )
 
-        self._separation_engine = SeparationEngine(self._config.separation)
         stems = self._separation_engine.separate(
             validated_path,
             output_paths,
@@ -179,7 +190,7 @@ class Pipeline:
         print(f"输入文件: {input_file}")
         print(f"输出目录: {output_paths.base_dir}")
         print()
-        print(f"[分离]")
+        print("[分离]")
         print(f"  模型: {sep.model}")
         print(f"  设备: {sep.device}")
         print(f"  偏移次数: {sep.shifts}")
@@ -194,7 +205,7 @@ class Pipeline:
 
         if lyr.enabled:
             print()
-            print(f"[歌词识别]")
+            print("[歌词识别]")
             print(f"  Whisper 模型: {lyr.whisper_model}")
             print(f"  设备: {lyr.whisper_device}")
             if lyr.language:
@@ -203,7 +214,7 @@ class Pipeline:
 
         if viz.enabled:
             print()
-            print(f"[可视化]")
+            print("[可视化]")
             print(f"  类型: {', '.join(viz.types)}")
 
         print("=" * 50)

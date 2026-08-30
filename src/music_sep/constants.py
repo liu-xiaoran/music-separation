@@ -1,7 +1,5 @@
 # 支持的输入音频格式
-SUPPORTED_INPUT_EXTENSIONS = frozenset(
-    {".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma"}
-)
+SUPPORTED_INPUT_EXTENSIONS = frozenset({".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac", ".wma"})
 
 # 可用的 Demucs 模型
 AVAILABLE_MODELS = {

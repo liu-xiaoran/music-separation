@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
-from typing import Optional
 
 from music_sep.config import LyricsConfig
 from music_sep.exceptions import TranscriptionError
@@ -16,9 +16,10 @@ logger = logging.getLogger("music_sep")
 @dataclass
 class TranscriptionResult:
     """歌词识别结果"""
-    segments: list[dict]          # [{"start": float, "end": float, "text": str}]
-    language: str                 # 检测到的语言代码
-    language_probability: float   # 语言检测置信度
+
+    segments: list[dict]  # [{"start": float, "end": float, "text": str}]
+    language: str  # 检测到的语言代码
+    language_probability: float  # 语言检测置信度
 
 
 class LyricsTranscriber:
@@ -33,18 +34,13 @@ class LyricsTranscriber:
         """懒加载初始化 WhisperModel"""
         if self._model is None:
             try:
-                from faster_whisper import WhisperModel
-            except ImportError as e:
-                raise TranscriptionError(f"无法导入 faster_whisper: {e}")
+                WhisperModel = import_module("faster_whisper").WhisperModel
+            except (ImportError, AttributeError) as e:
+                raise TranscriptionError(f"无法导入 faster_whisper: {e}") from e
 
             # 解析设备（ctranslate2 后端不支持 MPS）
-            self._device = detect_device(
-                self._config.whisper_device, backend="ctranslate2"
-            )
-            logger.info(
-                f"加载 Whisper 模型: {self._config.whisper_model} "
-                f"(设备: {self._device})"
-            )
+            self._device = detect_device(self._config.whisper_device, backend="ctranslate2")
+            logger.info(f"加载 Whisper 模型: {self._config.whisper_model} (设备: {self._device})")
 
             try:
                 # CUDA 使用 float16，CPU 使用 int8
@@ -90,11 +86,13 @@ class LyricsTranscriber:
 
             segments = []
             for seg in segments_iter:
-                segments.append({
-                    "start": seg.start,
-                    "end": seg.end,
-                    "text": seg.text.strip(),
-                })
+                segments.append(
+                    {
+                        "start": seg.start,
+                        "end": seg.end,
+                        "text": seg.text.strip(),
+                    }
+                )
 
             result = TranscriptionResult(
                 segments=segments,

@@ -1,4 +1,3 @@
-import pytest
 from typer.testing import CliRunner
 
 from music_sep.cli import app
@@ -38,27 +37,34 @@ class TestCLIBasic:
         assert result.exit_code != 0
 
     def test_dry_run(self, sample_audio):
-        result = runner.invoke(app, [
-            "separate", str(sample_audio), "--dry-run"
-        ])
+        result = runner.invoke(app, ["separate", str(sample_audio), "--dry-run"])
         assert result.exit_code == 0
         assert "dry-run" in result.output
 
     def test_dry_run_with_lyrics_and_visualize(self, sample_audio):
-        result = runner.invoke(app, [
-            "separate", str(sample_audio),
-            "--dry-run",
-            "--lyrics",
-            "--visualize",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "separate",
+                str(sample_audio),
+                "--dry-run",
+                "--lyrics",
+                "--visualize",
+            ],
+        )
         assert result.exit_code == 0
         assert "歌词识别" in result.output
         assert "可视化" in result.output
 
     def test_invalid_model(self, sample_audio):
-        result = runner.invoke(app, [
-            "separate", str(sample_audio),
-            "--model", "nonexistent",
-            "--dry-run",
-        ])
+        result = runner.invoke(
+            app,
+            [
+                "separate",
+                str(sample_audio),
+                "--model",
+                "nonexistent",
+                "--dry-run",
+            ],
+        )
         assert result.exit_code != 0
