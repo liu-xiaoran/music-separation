@@ -10,14 +10,14 @@ requires-python = ">=3.10"
 license = "Apache-2.0"
 dependencies = [
     "typer>=0.12,<1.0",
-    "demucs>=4.0",
+    "demucs==4.0.1",
     "faster-whisper>=1.0",
     "librosa>=0.10",
     "soundfile>=0.12",
     "matplotlib>=3.7",
     "numpy>=1.24",
     "torch>=2.0",
-    "pydub>=0.25",
+    "torchaudio>=2.0",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
@@ -28,6 +28,7 @@ dev = [
     "pytest-mock>=3.12",
     "ruff>=0.4",
     "mypy>=1.10",
+    "build>=1.2",
 ]
 
 [project.scripts]

@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 
 from music_sep.config import VisualizationConfig
 from music_sep.visualization import Visualizer

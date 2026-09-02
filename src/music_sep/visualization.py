@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import matplotlib
+
 matplotlib.use("Agg")  # 无交互后端
 
 import librosa
@@ -44,7 +45,8 @@ class Visualizer:
             生成的图片路径列表
         """
         try:
-            y, sr = librosa.load(str(audio_path), sr=None)
+            y, loaded_sr = librosa.load(str(audio_path), sr=None)
+            sr = int(loaded_sr)
         except Exception as e:
             raise VisualizationError(f"无法加载音频文件: {e}")
 
